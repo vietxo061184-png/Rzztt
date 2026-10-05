@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Wild Bounty Showdown</title>
+<style>
+:root{--gold:#ffd700;--gold-dark:#b8860b;--gold-light:#fff8dc;--text-main:#f1d4a9;--reel-bg:#fff8e7;--reel-border:#deb887;--font:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:radial-gradient(circle at center,#2c1e16 0%,#0d0705 100%);color:var(--text-main);font-family:var(--font);display:flex;flex-direction:column;align-items:center;min-height:100vh;user-select:none;padding:5px}
+.game-wrapper{position:relative;width:100%;max-width:950px;min-height:100vh;display:flex;flex-direction:column;padding:8px;background:linear-gradient(180deg,#5c3a21 0%,#2c1e16 100%);border:4px solid var(--gold-dark);border-radius:15px;box-shadow:0 0 50px rgba(0,0,0,.95)}
+.header{display:flex;flex-direction:column;align-items:center;margin-bottom:6px;width:100%}
+.title-banner{background:linear-gradient(180deg,#6b3e26 0%,#2c1e16 100%);border:3px solid var(--gold);border-radius:10px;padding:5px 15px;margin-bottom:5px;text-align:center;width:100%;max-width:750px}
+.title-banner h1{font-size:clamp(15px,4vw,22px);color:var(--gold);text-shadow:2px 2px 4px #000;text-transform:uppercase}
+.mult-banner{display:flex;justify-content:space-between;align-items:center;width:100%;background:rgba(0,0,0,.7);border:2px solid var(--gold-dark);border-radius:8px;padding:3px 2px;font-weight:bold;color:var(--gold);font-size:clamp(7px,1.8vw,11px);gap:1px}
+.mult-banner span{padding:2px 1px;transition:all .3s;border-radius:3px;flex:1;text-align:center}
+.mult-banner span.active{background-color:var(--gold);color:#000;transform:scale(1.12);box-shadow:0 0 10px var(--gold);font-weight:900}
+.ways-indicator{font-size:10px;color:var(--text-main);text-align:center;width:100%;margin-bottom:4px;font-style:italic;opacity:.8}
+.fs-counter{display:none;background:linear-gradient(180deg,#00bfff 0%,#0066cc 100%);border:2px solid #fff;border-radius:8px;padding:4px 14px;margin-bottom:4px;color:#fff;font-weight:bold;font-size:clamp(12px,3vw,16px);text-shadow:1px 1px 2px #000;box-shadow:0 0 15px rgba(0,191,255,.8)}
+.fs-counter.active{display:block;animation:fsPulse 1.2s infinite alternate}
+@keyframes fsPulse{0%{transform:scale(1)}100%{transform:scale(1.04)}}
+.reels-container{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;background-color:#2c1e16;padding:10px;border-radius:14px;border:5px solid var(--gold-dark);box-shadow:inset 0 0 40px #000;width:100%;height:min(60vh,620px);min-height:360px;position:relative}
+.reel{display:grid;gap:5px;background:rgba(255,255,255,.05);border-radius:8px;padding:3px;position:relative;height:100%;overflow:hidden}
+.symbol-cell{display:flex;align-items:center;justify-content:center;background-color:var(--reel-bg);border-radius:8px;border:2px solid var(--reel-border);font-size:clamp(22px,6vw,38px);font-weight:bold;box-shadow:0 3px 6px rgba(0,0,0,.4),inset 0 0 8px rgba(0,0,0,.1);position:relative;overflow:hidden;min-height:0;will-change:transform,opacity;backface-visibility:hidden}
+.symbol-cell[data-sym="J"]{color:#3498db}
+.symbol-cell[data-sym="Q"]{color:#27ae60}
+.symbol-cell[data-sym="K"]{color:#e67e22}
+.symbol-cell[data-sym="A"]{color:#e74c3c}
+.symbol-cell.win{background-color:#ffeaa7;border-color:#f39c12;animation:explode .6s ease forwards;z-index:5}
+@keyframes explode{
+  0%{transform:scale(1);opacity:1}
+  40%{transform:scale(1.08);opacity:.95;box-shadow:0 0 14px rgba(255,165,0,.55)}
+  70%{transform:scale(1.04);opacity:.5}
+  100%{transform:scale(.15);opacity:0}
+}
+.symbol-cell[data-sym="scatter"]{background:radial-gradient(circle,#fff8e7 0%,#ffe4b5 60%,#ffd700 100%);border:2px solid #ff8c00;animation:scatterGlow 1.4s infinite alternate;color:#8b4513;z-index:2}
+@keyframes scatterGlow{0%{box-shadow:0 0 5px #ff8c00}100%{box-shadow:0 0 18px #ff4500}}
+.symbol-cell.scatter-win{background:radial-gradient(circle,#fff 0%,#ffd700 100%);border-color:#ff4500;animation:scatterPulse .7s infinite alternate;z-index:6}
+@keyframes scatterPulse{0%{transform:scale(1)}100%{transform:scale(1.12)}}
+.symbol-cell.new-drop{animation:dropIn .6s cubic-bezier(.2,.7,.4,1) both}
+@keyframes dropIn{
+  0%{transform:translateY(-130%);opacity:0}
+  45%{transform:translateY(0);opacity:1}
+  65%{transform:translateY(-3px)}
+  85%{transform:translateY(1px)}
+  100%{transform:translateY(0)}
+}
+.reel.spinning .symbol-cell{animation:spinBlur .15s infinite linear}
+@keyframes spinBlur{
+  0%{transform:translateY(0);opacity:1;filter:blur(0)}
+  50%{transform:translateY(-7px);opacity:.5;filter:blur(1.2px)}
+  100%{transform:translateY(0);opacity:1;filter:blur(0)}
+}
+.reel.stopping .symbol-cell{animation:stopBounce .35s ease}
+@keyframes stopBounce{0%{transform:translateY(-5px);opacity:.7}60%{transform:translateY(2px)}100%{transform:translateY(0);opacity:1}}
+.controls{margin-top:8px;display:flex;flex-direction:column;gap:6px;background:rgba(0,0,0,.75);padding:8px;border-radius:12px;border:2px solid var(--gold-dark)}
+.info-bar{display:flex;justify-content:space-between;align-items:center;font-size:clamp(10px,2.5vw,13px);font-weight:bold;background:#3b2314;padding:6px 10px;border-radius:8px;border:2px solid var(--gold-dark);box-shadow:inset 0 0 10px #000;flex-wrap:wrap;gap:5px}
+.info-bar .value{color:var(--gold);font-size:clamp(11px,3vw,15px)}
+.bet-selector{display:flex;align-items:center;gap:8px;background:#2c1e16;padding:4px 10px;border-radius:8px;border:1px solid var(--gold-dark);cursor:pointer;transition:all .2s}
+.bet-selector:hover{background:#4a2c1a;border-color:var(--gold)}
+.bet-selector .label{font-size:10px;color:#aaa}
+.bet-selector .amount{color:var(--gold);font-weight:bold;font-size:14px}
+.button-row{display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap}
+button{background:linear-gradient(180deg,var(--gold) 0%,var(--gold-dark) 100%);color:#2c1e16;border:2px solid var(--gold-light);padding:9px 16px;font-size:clamp(10px,2.3vw,14px);font-weight:900;border-radius:30px;cursor:pointer;transition:all .15s ease;text-transform:uppercase;box-shadow:0 4px 0 #6b3e26;font-family:var(--font)}
+button:hover:not(:disabled){background:linear-gradient(180deg,var(--gold-light) 0%,var(--gold) 100%);transform:translateY(-2px)}
+button:active:not(:disabled){transform:translateY(4px)}
+button:disabled{background:#555;border-color:#333;color:#888;cursor:not-allowed}
+.btn-spin{font-size:clamp(16px,4.5vw,22px);padding:12px 40px;background:linear-gradient(180deg,#ff4500 0%,#b22222 100%);border-color:#ffd700;color:#fff;text-shadow:1px 1px 2px #000}
+.btn-small{padding:6px 10px;font-size:clamp(8px,1.8vw,11px);border-radius:8px}
+.btn-buy{background:linear-gradient(180deg,#8a2be2 0%,#4b0082 100%);border-color:#dda0dd;color:#fff}
+.btn-auto{background:linear-gradient(180deg,#00bfff 0%,#0066cc 100%);border-color:#87ceeb;color:#fff}
+.btn-turbo{background:linear-gradient(180deg,#ff8c00 0%,#cc5500 100%);border-color:#ffa500;color:#fff}
+.btn-turbo.active{background:linear-gradient(180deg,#ff0000 0%,#cc0000 100%)}
+.message-log{min-height:34px;display:flex;align-items:center;justify-content:center;font-size:clamp(10px,2.3vw,13px);font-weight:bold;color:var(--gold);text-shadow:2px 2px 4px #000;background:rgba(0,0,0,.6);border-radius:8px;margin-top:4px;text-align:center;padding:4px 8px}
+.message-log.win-msg{color:#00ff00}
+.message-log.lose-msg{color:#ff6347}
+.message-log.big-win-msg{color:#ffd700;font-size:15px}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:1000}
+.modal-overlay.active{display:flex}
+.modal-content{background:linear-gradient(180deg,#4a2c1a 0%,#2c1e16 100%);border:4px solid var(--gold);border-radius:15px;padding:18px;text-align:center;max-width:460px;width:92%;max-height:85vh;overflow-y:auto}
+.modal-content h2{color:var(--gold);margin-bottom:8px;font-size:16px}
+.modal-content p{margin-bottom:12px;font-size:12px;line-height:1.5}
+.modal-content button{margin:4px}
+.bet-list,.auto-options{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+.auto-options{grid-template-columns:repeat(3,1fr)}
+.bet-option,.auto-option{background:rgba(0,0,0,.5);border:2px solid var(--gold-dark);border-radius:8px;padding:10px;cursor:pointer;transition:all .2s;font-weight:bold;color:var(--gold-light);text-align:center}
+.bet-option:hover,.auto-option:hover{background:var(--gold-dark);border-color:var(--gold);transform:scale(1.05)}
+.bet-option.selected,.auto-option.selected{background:var(--gold);color:#000;border-color:#fff}
+.big-win-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle,rgba(255,215,0,.85) 0%,rgba(0,0,0,.95) 80%);display:flex;align-items:center;justify-content:center;z-index:2000;opacity:0;pointer-events:none;transition:opacity .5s ease}
+.big-win-overlay.active{opacity:1;pointer-events:auto}
+.big-win-text{font-size:clamp(30px,10vw,60px);font-weight:900;color:#fff;text-shadow:0 0 25px #ffd700,0 0 50px #ff4500,4px 4px 0 #000;animation:bigWinAnim .5s infinite alternate;text-align:center;padding:0 20px}
+@keyframes bigWinAnim{0%{transform:scale(1)}100%{transform:scale(1.08)}}
+.particle{position:absolute;width:8px;height:8px;border-radius:50%;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{0%{transform:translateY(-100vh) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+.win-display{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);z-index:1500;opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s ease;text-align:center;padding:15px 30px;background:rgba(0,0,0,.8);border:3px solid var(--gold);border-radius:15px;box-shadow:0 0 40px rgba(255,215,0,.6)}
+.win-display.active{opacity:1;transform:translate(-50%,-50%) scale(1.05)}
+.win-display .amount{font-size:clamp(24px,7vw,42px);font-weight:900;color:#ffd700;text-shadow:0 0 20px #ff8c00,0 0 40px #ff4500,3px 3px 0 #000}
+.win-display .sub{font-size:clamp(12px,3vw,16px);color:#fff;text-shadow:0 0 10px #000;margin-top:5px}
+.fs-summary{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.94);display:none;align-items:center;justify-content:center;z-index:1800;flex-direction:column;padding:20px}
+.fs-summary.active{display:flex}
+.fs-summary h2{color:#ffd700;font-size:clamp(20px,6vw,32px);margin-bottom:15px;text-shadow:2px 2px 4px #000}
+.fs-summary .total{font-size:clamp(28px,8vw,48px);color:#ffd700;font-weight:900;text-shadow:0 0 20px #ff8c00;margin:10px 0}
+.fs-summary .detail{font-size:clamp(12px,3vw,16px);color:#f1d4a9;margin:5px 0;text-align:center;line-height:1.8}
+.fs-summary button{margin-top:20px;padding:12px 30px;font-size:16px;border-radius:8px;background:linear-gradient(180deg,#ffd700 0%,#b8860b 100%);border:2px solid #fff;color:#2c1e16;font-weight:bold;cursor:pointer}
+.admin-panel{position:fixed;top:60px;right:15px;width:320px;max-width:92vw;background:#2c1e16;border:3px solid var(--gold);border-radius:12px;z-index:5000;display:none;flex-direction:column;box-shadow:0 0 30px rgba(0,0,0,.9);font-size:13px;color:var(--text-main);overflow:hidden}
+.admin-panel.active{display:flex}
+.admin-header{background:linear-gradient(180deg,#4a2c1a 0%,#2c1e16 100%);padding:10px;cursor:move;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--gold-dark);color:var(--gold);font-weight:bold;font-size:13px;user-select:none}
+.admin-header button{background:transparent;border:none;color:#ff4500;font-size:16px;cursor:pointer;padding:0 5px;box-shadow:none}
+.admin-body{padding:14px;display:flex;flex-direction:column;gap:12px;max-height:75vh;overflow-y:auto}
+.admin-section{background:rgba(0,0,0,.4);padding:12px;border-radius:8px;border:1px solid #3b2314}
+.admin-section h3{color:#ffd700;font-size:13px;margin-bottom:10px;text-align:center}
+.admin-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.admin-row label{font-size:12px;color:#f1d4a9}
+.admin-row input[type="number"]{background:#1a0f0a;border:1px solid var(--gold-dark);color:var(--gold);padding:8px;border-radius:4px;width:130px;font-size:14px;text-align:right;font-weight:bold}
+.quick-btns{display:flex;gap:6px;margin-top:8px}
+.quick-btns button{flex:1;padding:8px 4px;font-size:11px;border-radius:6px;background:linear-gradient(180deg,#2ecc71 0%,#27ae60 100%);border-color:#a9dfbf;color:#fff}
+.btn-apply{width:100%;padding:12px;font-size:14px;border-radius:8px;background:linear-gradient(180deg,#00cc00 0%,#008800 100%);border-color:#fff;color:#fff;margin-top:5px}
+.admin-trigger{position:absolute;top:5px;left:5px;background:rgba(255,215,0,.2);border:1px solid var(--gold);color:var(--gold);border-radius:5px;padding:3px 7px;font-size:13px;cursor:pointer;z-index:100}
+.admin-trigger:hover{background:var(--gold);color:#000}
+.sym-list{display:flex;flex-direction:column;gap:8px;max-height:250px;overflow-y:auto;padding-right:4px}
+.sym-item{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.3);padding:8px;border-radius:6px;border:1px solid #3b2314}
+.sym-item .ch{font-size:22px;width:34px;text-align:center}
+.sym-item .nm{flex:1;font-size:11px;color:#f1d4a9}
+.sym-item input[type="number"]{width:70px;padding:6px;font-size:12px;background:#1a0f0a;border:1px solid var(--gold-dark);color:var(--gold);border-radius:4px;text-align:right;font-weight:bold}
+.sym-item .lbl{font-size:10px;color:#aaa;margin-right:4px}
+@media (max-width:700px){.symbol-cell{font-size:22px}.reels-container{height:min(53vh,520px);min-height:330px}.admin-panel{width:300px;right:5px}}
+@media (max-width:480px){.symbol-cell{font-size:16px}.reels-container{height:min(48vh,460px);min-height:290px;padding:6px;gap:3px}.reel{gap:3px;padding:2px}.bet-list,.auto-options{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="game-wrapper" id="game-wrapper">
+  <button class="admin-trigger" id="admin-trigger">⚙️</button>
+  <div class="header">
+    <div class="title-banner"><h1>🤠 Wild Bounty Showdown 🤠</h1></div>
+    <div class="mult-banner" id="mult-banner"></div>
+    <div class="ways-indicator">3600 CÁCH THẮNG</div>
+    <div class="fs-counter" id="fs-counter">FREE SPINS: <span id="fs-remaining">0</span> lượt</div>
+  </div>
+  <div class="reels-container" id="reels-container"></div>
+  <div class="controls">
+    <div class="info-bar">
+      <div>Số dư: <span class="value" id="balance-display">1,000,000</span> đ</div>
+      <div>Thắng: <span class="value" id="win-display">0</span> đ</div>
+      <div class="bet-selector" id="bet-selector"><span class="label">CƯỢC:</span><span class="amount" id="bet-display">1,000</span><span style="font-size:10px;">▼</span></div>
+    </div>
+    <div class="button-row">
+      <button class="btn-small" id="btn-decrease">-</button>
+      <button class="btn-spin" id="btn-spin">🎰 QUAY</button>
+      <button class="btn-small" id="btn-increase">+</button>
+    </div>
+    <div class="button-row">
+      <button class="btn-small btn-buy" id="btn-buy">MUA (x100)</button>
+      <button class="btn-small btn-auto" id="btn-auto">TỰ ĐỘNG</button>
+      <button class="btn-small btn-turbo" id="btn-turbo">TURBO</button>
+      <button class="btn-small" id="btn-paytable">BẢNG THƯỞNG</button>
+      <button class="btn-small" id="btn-reset">RESET</button>
+    </div>
+    <div class="message-log" id="message-log">Nhấn QUAY để bắt đầu!</div>
+  </div>
+  <div class="modal-overlay" id="bet-modal"><div class="modal-content"><h2>CHỌN MỨC CƯỢC</h2><div class="bet-list" id="bet-list"></div><button id="bet-modal-close" style="margin-top:15px;">ĐÓNG</button></div></div>
+  <div class="modal-overlay" id="auto-modal"><div class="modal-content"><h2>CHỌN SỐ LƯỢT TỰ ĐỘNG</h2><div class="auto-options" id="auto-options"></div><button id="auto-modal-close" style="margin-top:15px;">ĐÓNG</button></div></div>
+  <div class="modal-overlay" id="modal-overlay"><div class="modal-content" id="modal-content"><h2 id="modal-title">Thông báo</h2><div id="modal-text">Nội dung</div><button id="modal-close">Đóng</button><button id="modal-confirm" style="display:none;">Xác nhận</button></div></div>
+  <div class="big-win-overlay" id="big-win-overlay"><div class="big-win-text" id="big-win-text">BIG WIN!</div></div>
+  <div class="win-display" id="win-display-panel"><div class="amount" id="win-amount-text">0</div><div class="sub" id="win-amount-sub"></div></div>
+  <div class="fs-summary" id="fs-summary"><h2>🎉 TỔNG KẾT FREE SPINS 🎉</h2><div class="detail" id="fs-detail"></div><div class="total" id="fs-total">0 đ</div><button id="fs-close">ĐÓNG</button></div>
+  <div class="admin-panel" id="admin-panel">
+    <div class="admin-header" id="admin-header"><span>🛠️ ADMIN</span><button id="admin-close">✖</button></div>
+    <div class="admin-body">
+      <div class="admin-section"><h3>💰 SỐ DƯ</h3>
+        <div class="admin-row"><label>Số dư:</label><input type="number" id="admin-balance" value="1000000"></div>
+        <div class="quick-btns"><button id="btn-add-1m">+1M</button><button id="btn-add-10m">+10M</button><button id="btn-add-100m">+100M</button></div>
+      </div>
+      <div class="admin-section"><h3>🎰 TỶ LỆ XUẤT HIỆN</h3>
+        <div style="font-size:10px;color:#aaa;margin-bottom:8px;text-align:center;">Weight càng cao → xuất hiện càng nhiều</div>
+        <div class="sym-list" id="sym-list"></div>
+      </div>
+      <button class="btn-apply" id="admin-apply">✅ ÁP DỤNG</button>
+    </div>
+  </div>
+</div>
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const DEFAULT_CONFIG={
+  initialBalance:1000000,defaultBet:1000,
+  betLevels:[100,500,1000,5000,10000,50000,100000,500000,1000000],
+  reelsCount:6,rowsConfig:[3,4,5,5,4,3],
+  spinDuration:2200,turboSpinDuration:900,reelStopDelay:450,
+  symbols:[
+    {id:'wild',char:'🤠',name:'Wild',value:0,isWild:true,weight:3},
+    {id:'scatter',char:'💰',name:'Scatter',value:0,isScatter:true,weight:4},
+    {id:'gun',char:'🔫',name:'Súng',value:2000,weight:6},
+    {id:'whiskey',char:'🥃',name:'Rượu',value:800,weight:10},
+    {id:'hat',char:'🎩',name:'Mũ',value:400,weight:14},
+    {id:'horse',char:'🐎',name:'Ngựa',value:200,weight:18},
+    {id:'A',char:'A',name:'A',value:50,weight:25},
+    {id:'K',char:'K',name:'K',value:30,weight:25},
+    {id:'Q',char:'Q',name:'Q',value:20,weight:25},
+    {id:'J',char:'J',name:'J',value:10,weight:25}
+  ],
+  scatterPays:{3:8,4:20,5:50,6:200},
+  buyFeatureCostMultiplier:100,freeSpinCount:10,freeSpinMultiplier:8,
+  MAX_CASCADE_LEVEL:12,MAX_MULTIPLIER:1024,MAX_WIN_MULT:10000
+};
+let CONFIG=JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const fmt=n=>{if(!Number.isFinite(n))return'0';const v=Math.floor(Math.abs(n));return v.toLocaleString('vi-VN')};
+const safeNum=(n,def=0)=>{const v=Number(n);return Number.isFinite(v)&&v>0?v:def};
+
+/* ============================================================
+   AUDIO
+   ============================================================ */
+class AudioManager{
+  constructor(){this.ctx=null;this.isMuted=false;this.masterGain=null;this.init()}
+  init(){const f=()=>{if(!this.ctx){try{this.ctx=new(window.AudioContext||window.webkitAudioContext)();this.masterGain=this.ctx.createGain();this.masterGain.gain.value=0.9;this.masterGain.connect(this.ctx.destination)}catch(e){}}if(this.ctx&&this.ctx.state==='suspended')this.ctx.resume()};document.addEventListener('click',f,{once:true});document.addEventListener('touchstart',f,{once:true})}
+  tone(freq,dur,type='sine',vol=0.1,delay=0){
+    if(!this.ctx||this.isMuted)return;
+    try{const t=this.ctx.currentTime+delay;const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);o.connect(g);g.connect(this.masterGain);o.start(t);o.stop(t+dur)}catch(e){}
+  }
+  noise(dur,vol=0.15,delay=0){
+    if(!this.ctx||this.isMuted)return;
+    try{const t=this.ctx.currentTime+delay;const bs=Math.floor(this.ctx.sampleRate*dur);const buf=this.ctx.createBuffer(1,bs,this.ctx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<bs;i++)d[i]=(Math.random()*2-1)*(1-i/bs);const s=this.ctx.createBufferSource();s.buffer=buf;const g=this.ctx.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);s.connect(g);g.connect(this.masterGain);s.start(t)}catch(e){}
+  }
+  spin(){for(let i=0;i<3;i++)this.tone(220+i*100,0.14,'square',0.05,i*0.14)}
+  reelStop(i){this.tone(380+i*90,0.22,'triangle',0.12);this.noise(0.15,0.06)}
+  win(){this.tone(880,0.15,'sine',0.12,0);this.tone(1108,0.15,'sine',0.12,0.1);this.tone(1318,0.3,'sine',0.12,0.2)}
+  bigWin(){[523,659,784,1046,1318,1568,2093].forEach((f,i)=>this.tone(f,0.4,'triangle',0.14,i*0.09))}
+  scatter(){[800,1000,1200,1400,1600].forEach((f,i)=>this.tone(f,0.28,'sine',0.12,i*0.14))}
+  click(){this.tone(600,0.05,'square',0.06)}
+  error(){this.tone(200,0.25,'sawtooth',0.09)}
+  explode(){this.noise(0.25,0.2,0);this.tone(120,0.3,'sawtooth',0.08,0);this.tone(80,0.35,'square',0.06,0.05)}
+  drop(){this.tone(280,0.1,'triangle',0.08,0);this.tone(380,0.1,'triangle',0.07,0.06);this.tone(480,0.12,'triangle',0.05,0.12)}
+  countUp(){this.tone(1300,0.035,'square',0.05)}
+  toggleMute(){this.isMuted=!this.isMuted;return this.isMuted}
+}
+
+/* ============================================================
+   UI MANAGER
+   ============================================================ */
+class UIManager{
+  constructor(){
+    this.el={
+      reels:document.getElementById('reels-container'),balance:document.getElementById('balance-display'),
+      bet:document.getElementById('bet-display'),win:document.getElementById('win-display'),
+      msg:document.getElementById('message-log'),btnSpin:document.getElementById('btn-spin'),
+      btnDec:document.getElementById('btn-decrease'),btnInc:document.getElementById('btn-increase'),
+      btnBuy:document.getElementById('btn-buy'),btnAuto:document.getElementById('btn-auto'),
+      btnTurbo:document.getElementById('btn-turbo'),btnPay:document.getElementById('btn-paytable'),
+      btnReset:document.getElementById('btn-reset'),modal:document.getElementById('modal-overlay'),
+      modalTitle:document.getElementById('modal-title'),modalText:document.getElementById('modal-text'),
+      modalClose:document.getElementById('modal-close'),modalConfirm:document.getElementById('modal-confirm'),
+      bigWin:document.getElementById('big-win-overlay'),bigWinText:document.getElementById('big-win-text'),
+      betSel:document.getElementById('bet-selector'),betModal:document.getElementById('bet-modal'),
+      betList:document.getElementById('bet-list'),betModalClose:document.getElementById('bet-modal-close'),
+      autoModal:document.getElementById('auto-modal'),autoOptions:document.getElementById('auto-options'),
+      autoModalClose:document.getElementById('auto-modal-close'),winPanel:document.getElementById('win-display-panel'),
+      winAmountText:document.getElementById('win-amount-text'),winAmountSub:document.getElementById('win-amount-sub'),
+      fsSummary:document.getElementById('fs-summary'),fsDetail:document.getElementById('fs-detail'),
+      fsTotal:document.getElementById('fs-total'),fsClose:document.getElementById('fs-close'),
+      fsCounter:document.getElementById('fs-counter'),fsRemaining:document.getElementById('fs-remaining'),
+      multBanner:document.getElementById('mult-banner')
+    };
+    this.multSpans={};
+    this.MULT_KEYS=['x1','x2','x4','x8','x16','x32','x64','x128','x256','x512','x1024'];
+    this.buildMultBanner();
+    this.reelElements=[];
+  }
+  buildMultBanner(){
+    this.el.multBanner.innerHTML='';
+    this.MULT_KEYS.forEach(k=>{
+      const s=document.createElement('span');s.textContent=k;s.dataset.mult=k;
+      this.el.multBanner.appendChild(s);
+      this.multSpans[k]=s;
+    });
+    this.multSpans['x1'].classList.add('active');
+  }
+  initReels(){
+    this.el.reels.innerHTML='';
+    this.el.reels.style.gridTemplateColumns=`repeat(${CONFIG.reelsCount},1fr)`;
+    this.reelElements=[];
+    for(let i=0;i<CONFIG.reelsCount;i++){
+      const rows=CONFIG.rowsConfig[i];
+      const r=document.createElement('div');r.className='reel';r.id='reel-'+i;
+      r.style.gridTemplateRows=`repeat(${rows},1fr)`;
+      this.reelElements.push(r);
+      for(let j=0;j<rows;j++){
+        const c=document.createElement('div');c.className='symbol-cell';c.id=`cell-${i}-${j}`;c.textContent='?';
+        r.appendChild(c);
+      }
+      this.el.reels.appendChild(r);
+    }
+  }
+  updateBalance(b){this.el.balance.textContent=fmt(b)+' đ'}
+  updateBet(b){this.el.bet.textContent=fmt(b)}
+  updateWin(w){this.el.win.textContent=fmt(w)+' đ'}
+  showMessage(msg,type='info'){this.el.msg.textContent=msg;this.el.msg.className='message-log';if(type==='win')this.el.msg.classList.add('win-msg');else if(type==='lose')this.el.msg.classList.add('lose-msg');else if(type==='big')this.el.msg.classList.add('big-win-msg')}
+  clearHighlights(){document.querySelectorAll('.symbol-cell').forEach(c=>c.classList.remove('win','scatter-win'))}
+  setSpinning(s){
+    this.el.btnSpin.disabled=s;this.el.btnBuy.disabled=s;this.el.btnAuto.disabled=s;
+    this.el.btnDec.disabled=s;this.el.btnInc.disabled=s;
+    this.reelElements.forEach(r=>{if(s)r.classList.add('spinning');else r.classList.remove('spinning')});
+  }
+  activateMultiplier(k){Object.keys(this.multSpans).forEach(x=>this.multSpans[x].classList.remove('active'));if(this.multSpans[k])this.multSpans[k].classList.add('active')}
+  showWinPanel(amount,sub){this.el.winAmountText.textContent=fmt(amount)+' đ';this.el.winAmountSub.textContent=sub||'';this.el.winPanel.classList.add('active')}
+  hideWinPanel(){this.el.winPanel.classList.remove('active')}
+  showFsCounter(n){this.el.fsRemaining.textContent=n;this.el.fsCounter.classList.add('active')}
+  hideFsCounter(){this.el.fsCounter.classList.remove('active')}
+  showBigWin(text){this.el.bigWinText.textContent=text;this.el.bigWin.classList.add('active');for(let i=0;i<40;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.backgroundColor=['#ffd700','#ff8c00','#00bfff'][Math.floor(Math.random()*3)];p.style.animationDuration=(Math.random()*2+2)+'s';this.el.bigWin.appendChild(p);setTimeout(()=>p.remove(),4000)}setTimeout(()=>this.el.bigWin.classList.remove('active'),3000)}
+  showModal(title,text,showConfirm=false,onConfirm=null){this.el.modalTitle.textContent=title;this.el.modalText.innerHTML=text;this.el.modal.classList.add('active');this.el.modalConfirm.style.display=showConfirm?'inline-block':'none';if(showConfirm&&onConfirm)this.el.modalConfirm.onclick=()=>{this.closeModal();onConfirm()}}
+  closeModal(){this.el.modal.classList.remove('active');this.el.modalConfirm.onclick=null}
+  showFsSummary(detail,total){this.el.fsDetail.innerHTML=detail;this.el.fsTotal.textContent=fmt(total)+' đ';this.el.fsSummary.classList.add('active')}
+  renderBetList(current,onSelect){
+    this.el.betList.innerHTML='';
+    CONFIG.betLevels.forEach(lv=>{
+      const d=document.createElement('div');d.className='bet-option'+(lv===current?' selected':'');
+      d.textContent=fmt(lv)+' đ';
+      d.addEventListener('click',()=>{onSelect(lv);this.el.betModal.classList.remove('active')});
+      this.el.betList.appendChild(d);
+    });
+  }
+  renderAutoOptions(onSelect){
+    this.el.autoOptions.innerHTML='';
+    [10,25,50,100,'∞'].forEach(o=>{
+      const d=document.createElement('div');d.className='auto-option';
+      d.textContent=o==='∞'?'Vô hạn':o+' lượt';
+      d.addEventListener('click',()=>{onSelect(o);this.el.autoModal.classList.remove('active')});
+      this.el.autoOptions.appendChild(d);
+    });
+  }
+}
+
+/* ============================================================
+   SLOT MACHINE
+   ============================================================ */
+class SlotMachine{
+  constructor(){
+    this.balance=CONFIG.initialBalance;
+    this.currentBet=CONFIG.defaultBet;
+    this.isSpinning=false;
+    this.isAutoSpinning=false;
+    this.autoSpinCount=0;
+    this.isInfiniteAuto=false;
+    this.isTurbo=false;
+    this.freeSpinsRemaining=0;
+    this.freeSpinMultiplier=1;
+    this.freeSpinActive=false;
+    this.totalFreeSpinWin=0;
+    this.fsTotalSpins=0;
+    this.fsExtraSpins=0;
+    this.fsScatterCount=0;
+    this.audio=new AudioManager();
+    this.ui=new UIManager();
+    this.loadGame();
+    this.init();
+  }
+  loadGame(){
+    try{const d=JSON.parse(localStorage.getItem('wildBountyGame'));
+      if(d){
+        const b=Number(d.balance);if(Number.isFinite(b)&&b>=0)this.balance=b;
+        const c=Number(d.currentBet);if(Number.isFinite(c)&&c>0)this.currentBet=c;
+      }
+    }catch(e){}
+  }
+  saveGame(){try{localStorage.setItem('wildBountyGame',JSON.stringify({balance:this.balance,currentBet:this.currentBet}))}catch(e){}}
+  init(){
+    this.ui.initReels();
+    this.ui.updateBalance(this.balance);
+    this.ui.updateBet(this.currentBet);
+    this.ui.activateMultiplier('x1');
+    this.ui.showMessage('Nhấn QUAY để bắt đầu!','info');
+    this.bindEvents();
+    setInterval(()=>this.saveGame(),5000);
+  }
+  bindEvents(){
+    this.ui.el.btnSpin.addEventListener('click',()=>this.spin());
+    this.ui.el.btnDec.addEventListener('click',()=>this.changeBet(-1));
+    this.ui.el.btnInc.addEventListener('click',()=>this.changeBet(1));
+    this.ui.el.btnBuy.addEventListener('click',()=>this.buyFeature());
+    this.ui.el.btnAuto.addEventListener('click',()=>{
+      this.ui.renderAutoOptions(o=>{
+        if(o==='∞'){this.isInfiniteAuto=true;this.autoSpinCount=999999}
+        else{this.isInfiniteAuto=false;this.autoSpinCount=o}
+        this.isAutoSpinning=true;
+        this.ui.showMessage(`Tự động quay ${o==='∞'?'vô hạn':o+' lượt'}...`,'info');
+        this.autoSpin();
+      });
+      this.ui.el.autoModal.classList.add('active');
+    });
+    this.ui.el.btnTurbo.addEventListener('click',()=>this.toggleTurbo());
+    this.ui.el.btnPay.addEventListener('click',()=>this.showPaytable());
+    this.ui.el.btnReset.addEventListener('click',()=>this.confirmReset());
+    this.ui.el.modalClose.addEventListener('click',()=>this.ui.closeModal());
+    this.ui.el.betSel.addEventListener('click',()=>{
+      this.ui.renderBetList(this.currentBet,lv=>{
+        this.currentBet=lv;this.ui.updateBet(lv);
+        this.ui.showMessage(`Đã chọn cược: ${fmt(lv)} đ`,'info');
+      });
+      this.ui.el.betModal.classList.add('active');
+    });
+    this.ui.el.betModalClose.addEventListener('click',()=>this.ui.el.betModal.classList.remove('active'));
+    this.ui.el.autoModalClose.addEventListener('click',()=>this.ui.el.autoModal.classList.remove('active'));
+    this.ui.el.fsClose.addEventListener('click',()=>this.ui.el.fsSummary.classList.remove('active'));
+  }
+  changeBet(d){
+    if(this.isSpinning||this.isAutoSpinning)return;
+    this.audio.click();
+    const i=CONFIG.betLevels.indexOf(this.currentBet);let n=i+d;
+    if(n<0)n=CONFIG.betLevels.length-1;if(n>=CONFIG.betLevels.length)n=0;
+    this.currentBet=CONFIG.betLevels[n];
+    this.ui.updateBet(this.currentBet);
+    this.ui.showMessage(`Cược: ${fmt(this.currentBet)} đ`,'info');
+  }
+  toggleTurbo(){this.isTurbo=!this.isTurbo;this.ui.el.btnTurbo.classList.toggle('active',this.isTurbo);this.ui.showMessage(this.isTurbo?'⚡ TURBO BẬT':'Chế độ thường','info')}
+  async autoSpin(){
+    while(this.isAutoSpinning&&(this.autoSpinCount>0||this.isInfiniteAuto)){
+      if(this.balance<this.currentBet&&this.freeSpinsRemaining===0){this.ui.showMessage('Hết tiền!','lose');this.isAutoSpinning=false;break}
+      this.autoSpinCount--;
+      await this.spin();
+      await sleep(this.isTurbo?300:1000);
+    }
+    if(this.autoSpinCount<=0&&!this.isInfiniteAuto){this.isAutoSpinning=false;this.ui.showMessage('Hoàn thành tự động quay.','info')}
+  }
+  buyFeature(){
+    if(this.isSpinning||this.isAutoSpinning)return;
+    const cost=this.currentBet*CONFIG.buyFeatureCostMultiplier;
+    if(this.balance<cost){this.ui.showMessage(`Cần ${fmt(cost)} đ!`,'lose');this.audio.error();return}
+    this.ui.showModal('XÁC NHẬN MUA',`Trả <b style="color:#ffd700">${fmt(cost)} đ</b> để nhận <b style="color:#00bfff">${CONFIG.freeSpinCount} vòng quay miễn phí</b> x${CONFIG.freeSpinMultiplier}?`,true,()=>{
+      this.balance-=cost;this.ui.updateBalance(this.balance);
+      this.startFreeSpins(CONFIG.freeSpinCount);
+    });
+  }
+  startFreeSpins(count){
+    this.freeSpinsRemaining=count;
+    this.freeSpinMultiplier=CONFIG.freeSpinMultiplier;
+    this.freeSpinActive=true;
+    this.totalFreeSpinWin=0;
+    this.fsTotalSpins=count;
+    this.fsExtraSpins=0;
+    this.fsScatterCount=0;
+    this.ui.showFsCounter(this.freeSpinsRemaining);
+    this.ui.showMessage(`🎉 ${count} VÒNG QUAY MIỄN PHÍ! Hệ số x${this.freeSpinMultiplier}`,'big');
+    this.ui.activateMultiplier('x'+this.freeSpinMultiplier);
+    this.audio.bigWin();
+    setTimeout(()=>this.autoSpinFreeSpins(),1500);
+  }
+  async autoSpinFreeSpins(){
+    while(this.freeSpinsRemaining>0){
+      this.freeSpinsRemaining--;
+      this.ui.showFsCounter(this.freeSpinsRemaining);
+      this.ui.showMessage(`FREE SPIN: còn ${this.freeSpinsRemaining+1} lượt`,'info');
+      await this.spin(true);
+      await sleep(900);
+    }
+    this.freeSpinActive=false;
+    const detail=
+      `Tổng lượt ban đầu: <b>${this.fsTotalSpins}</b><br>`+
+      `Lượt cộng thêm từ scatter: <b>+${this.fsExtraSpins}</b><br>`+
+      `Tổng cộng: <b>${this.fsTotalSpins+this.fsExtraSpins}</b> lượt<br>`+
+      `Scatter nhận được: <b>${this.fsScatterCount}</b>`;
+    this.ui.showFsSummary(detail,this.totalFreeSpinWin);
+    this.ui.hideFsCounter();
+    this.ui.showMessage('✅ Hoàn thành vòng quay miễn phí!','win');
+    this.freeSpinMultiplier=1;
+    this.ui.activateMultiplier('x1');
+    this.totalFreeSpinWin=0;
+  }
+  async spin(isFreeSpin=false){
+    if(this.isSpinning)return;
+    if(!isFreeSpin&&this.balance<this.currentBet){this.ui.showMessage('Số dư không đủ!','lose');this.audio.error();return}
+    if(!isFreeSpin&&this.freeSpinsRemaining>0)isFreeSpin=true;
+
+    this.isSpinning=true;
+    this.ui.setSpinning(true);
+    this.ui.clearHighlights();
+    this.ui.updateWin(0);
+    this.audio.spin();
+
+    // Reset multiplier về x1 khi bắt đầu spin thường
+    if(!isFreeSpin)this.ui.activateMultiplier('x1');
+
+    if(!isFreeSpin){
+      this.balance-=this.currentBet;
+      this.ui.updateBalance(this.balance);
+    }
+
+    // Sinh grid cuối
+    const finalGrid=this.generateGrid();
+    const spinTime=this.isTurbo?CONFIG.turboSpinDuration:CONFIG.spinDuration;
+    const stopDelay=this.isTurbo?180:CONFIG.reelStopDelay;
+
+    // Bắt đầu quay
+    this.ui.reelElements.forEach(r=>r.classList.add('spinning'));
+
+    // Thay đổi symbol trong lúc quay
+    const spinInterval=setInterval(()=>{
+      for(let i=0;i<CONFIG.reelsCount;i++){
+        const r=document.getElementById('reel-'+i);
+        if(r&&r.classList.contains('spinning')){
+          const rows=CONFIG.rowsConfig[i];
+          for(let j=0;j<rows;j++){
+            const c=document.getElementById('cell-'+i+'-'+j);
+            if(c){const pool=this.buildPool();const s=pool[Math.floor(Math.random()*pool.length)];c.textContent=s.char;c.dataset.sym=s.id}
+          }
+        }
+      }
+    },100);
+
+    // Dừng lần lượt
+    for(let i=0;i<CONFIG.reelsCount;i++){
+      await sleep(i===0?spinTime:stopDelay);
+      const r=document.getElementById('reel-'+i);
+      if(r){
+        r.classList.remove('spinning');r.classList.add('stopping');
+        const rows=CONFIG.rowsConfig[i];
+        for(let j=0;j<rows;j++){
+          const c=document.getElementById('cell-'+i+'-'+j);
+          if(c){c.textContent=finalGrid[i][j].char;c.dataset.sym=finalGrid[i][j].id}
+        }
+        this.audio.reelStop(i);
+        setTimeout(()=>r.classList.remove('stopping'),350);
+      }
+    }
+    clearInterval(spinInterval);
+    await sleep(300);
+
+    // CASCADE
+    await this.runCascade(finalGrid,isFreeSpin);
+
+    this.isSpinning=false;
+    this.ui.setSpinning(false);
+    this.saveGame();
+  }
+
+  buildPool(){const pool=[];CONFIG.symbols.forEach(s=>{const w=safeNum(s.weight,1);for(let k=0;k<w;k++)pool.push(s)});return pool}
+  generateGrid(){
+    const pool=this.buildPool();const grid=[];
+    for(let i=0;i<CONFIG.reelsCount;i++){
+      const rows=CONFIG.rowsConfig[i];grid[i]=[];
+      for(let j=0;j<rows;j++){const s=pool[Math.floor(Math.random()*pool.length)];grid[i][j]={...s,scatterUsed:false}}
+    }
+    return grid;
+  }
+
+  /* ============================================================
+     CASCADE LOOP
+     ============================================================ */
+  async runCascade(initialGrid,isFreeSpin){
+    let grid=initialGrid.map(col=>col.map(s=>({...s,scatterUsed:false})));
+    let cascadeLevel=0;
+    let totalWin=0;
+    let allMessages=[];
+    let anyWin=false;
+    let pendingFreeSpinsScatter=0;
+
+    const maxWin=this.currentBet*CONFIG.MAX_WIN_MULT;
+
+    while(cascadeLevel<CONFIG.MAX_CASCADE_LEVEL){
+      const result=this.evaluate(grid);
+
+      // Xử lý scatter
+      if(result.newScatterCount>=3){
+        this.fsScatterCount+=result.newScatterCount;
+        this.audio.scatter();
+        // Highlight scatter MỚI
+        result.newScatterCells.forEach(c=>{
+          const el=document.getElementById('cell-'+c.reel+'-'+c.row);
+          if(el)el.classList.add('scatter-win');
+        });
+        // Đánh dấu scatter đã dùng (để không đếm lại)
+        result.newScatterCells.forEach(c=>{grid[c.reel][c.row].scatterUsed=true});
+        
+        if(isFreeSpin){
+          // Đang free spin: cộng thêm lượt
+          const extra=result.newScatterCount*2;
+          this.freeSpinsRemaining+=extra;
+          this.fsExtraSpins+=extra;
+          this.ui.showFsCounter(this.freeSpinsRemaining);
+          this.ui.showMessage(`🎉 +${extra} LƯỢT FREE SPIN! Còn ${this.freeSpinsRemaining} lượt`,'big');
+          await sleep(900);
+        }else{
+          pendingFreeSpinsScatter=Math.max(pendingFreeSpinsScatter,result.newScatterCount);
+        }
+      }
+
+      if(result.totalWin<=0)break;
+
+      anyWin=true;
+      cascadeLevel++;
+
+      // Multiplier
+      let mult=Math.min(Math.pow(2,cascadeLevel-1),CONFIG.MAX_MULTIPLIER);
+      if(isFreeSpin)mult=Math.min(mult*this.freeSpinMultiplier,CONFIG.MAX_MULTIPLIER*this.freeSpinMultiplier);
+      const multKey=this.multKeyFor(mult);
+      this.ui.activateMultiplier(multKey);
+
+      // Highlight ô thắng (không highlight scatter)
+      result.winningCells.forEach(c=>{
+        const el=document.getElementById('cell-'+c.reel+'-'+c.row);
+        if(el)el.classList.add('win');
+      });
+      this.audio.explode();
+      await sleep(700);
+
+      // Tính tiền
+      let winAmount=Math.floor(result.totalWin*mult);
+      if(!Number.isFinite(winAmount)||winAmount<0)winAmount=0;
+      if(totalWin+winAmount>maxWin)winAmount=Math.max(0,maxWin-totalWin);
+      totalWin+=winAmount;
+      if(isFreeSpin)this.totalFreeSpinWin+=winAmount;
+      if(result.messages.length)allMessages.push(...result.messages);
+
+      // Hiển thị tiền ở giữa
+      const sub=isFreeSpin?`FREE x${mult}`:`CASCADE x${mult}`;
+      if(winAmount>0){this.ui.showWinPanel(totalWin,sub);this.audio.countUp()}
+      this.ui.updateWin(totalWin);
+      this.ui.updateBalance(this.balance+totalWin);
+      await sleep(600);
+
+      // Rớt
+      const prevGrid=grid.map(col=>col.map(s=>({...s})));
+      const {newGrid,affectedColumns}=this.applyCascade(grid,result.winningCells);
+      grid=newGrid;
+      this.renderCascade(grid,prevGrid,affectedColumns);
+      this.audio.drop();
+      await sleep(800);
+    }
+
+    this.ui.hideWinPanel();
+
+    if(anyWin){
+      this.balance+=totalWin;
+      this.ui.updateBalance(this.balance);
+      this.ui.updateWin(totalWin);
+      this.audio.win();
+      const shortMsg=allMessages.slice(0,3).join(' | ');
+      this.ui.showMessage(`🎉 THẮNG: ${shortMsg}`,'win');
+      if(totalWin>=this.currentBet*50){this.ui.showBigWin('BIG WIN!');this.audio.bigWin()}
+      else if(totalWin>=this.currentBet*20){this.ui.showBigWin('MEGA WIN!');this.audio.bigWin()}
+      else if(totalWin>=this.currentBet*10){this.ui.showBigWin('WIN!');this.audio.win()}
+    }else{
+      this.ui.showMessage('😢 Chúc bạn may mắn lần sau!','lose');
+      if(!isFreeSpin)this.ui.activateMultiplier('x1');
+      else this.ui.activateMultiplier('x'+this.freeSpinMultiplier);
+    }
+
+    // Kích hoạt free spins SAU KHI cascade xong
+    if(pendingFreeSpinsScatter>=3&&!isFreeSpin){
+      const totalSpins=CONFIG.freeSpinCount+(pendingFreeSpinsScatter-3)*2;
+      setTimeout(()=>this.startFreeSpins(totalSpins),800);
+    }
+  }
+
+  multKeyFor(mult){
+    if(mult>=1024)return'x1024';if(mult>=512)return'x512';if(mult>=256)return'x256';
+    if(mult>=128)return'x128';if(mult>=64)return'x64';if(mult>=32)return'x32';
+    if(mult>=16)return'x16';if(mult>=8)return'x8';if(mult>=4)return'x4';
+    if(mult>=2)return'x2';return'x1';
+  }
+
+  renderCascade(newGrid,prevGrid,affectedColumns){
+    document.querySelectorAll('.symbol-cell').forEach(c=>c.classList.remove('win','scatter-win'));
+    const newDropCells=[];
+    affectedColumns.forEach(i=>{
+      const rows=CONFIG.rowsConfig[i];
+      for(let j=0;j<rows;j++){
+        const el=document.getElementById('cell-'+i+'-'+j);
+        if(!el)continue;
+        const newSym=newGrid[i][j];
+        const prevSym=prevGrid[i]?prevGrid[i][j]:null;
+        const changed=!prevSym||prevSym.id!==newSym.id;
+        el.textContent=newSym.char;
+        el.dataset.sym=newSym.id;
+        el.classList.remove('new-drop');
+        if(changed){
+          void el.offsetWidth;
+          el.classList.add('new-drop');
+          newDropCells.push(el);
+        }
+      }
+    });
+    setTimeout(()=>{newDropCells.forEach(el=>el.classList.remove('new-drop'))},650);
+  }
+
+  /* Đánh giá grid: chỉ đếm scatter CHƯA dùng */
+  evaluate(grid){
+    const reels=CONFIG.reelsCount;
+    const rowsCfg=CONFIG.rowsConfig;
+    let scatterCount=0;
+    const scatterCells=[];
+    let newScatterCount=0;
+    const newScatterCells=[];
+    for(let i=0;i<reels;i++){
+      for(let j=0;j<rowsCfg[i];j++){
+        if(grid[i][j].isScatter){
+          scatterCount++;
+          scatterCells.push({reel:i,row:j});
+          if(!grid[i][j].scatterUsed){
+            newScatterCount++;
+            newScatterCells.push({reel:i,row:j});
+          }
+        }
+      }
+    }
+    let totalWin=0;
+    const messages=[];
+    const winningCells=[];
+
+    // Scatter trả thưởng (chỉ khi có 3+ scatter MỚI)
+    if(newScatterCount>=3){
+      const mult=CONFIG.scatterPays[newScatterCount]||200;
+      const sw=this.currentBet*mult;
+      totalWin+=sw;
+      messages.push(`${newScatterCount}x Scatter (x${mult}) +${fmt(sw)} đ`);
+    }
+
+    // Dò thắng theo cột
+    const checkSymbols=CONFIG.symbols.filter(s=>!s.isWild&&!s.isScatter);
+    checkSymbols.forEach(sym=>{
+      const counts=new Array(reels).fill(0);
+      const cellsInCol=[];
+      for(let i=0;i<reels;i++){
+        cellsInCol[i]=[];
+        for(let j=0;j<rowsCfg[i];j++){
+          const g=grid[i][j];
+          if(g.isScatter)continue;
+          if(g.id===sym.id||g.isWild){counts[i]++;cellsInCol[i].push({reel:i,row:j})}
+        }
+      }
+      let matched=0,ways=1;
+      for(let i=0;i<reels;i++){if(counts[i]===0)break;ways*=counts[i];matched++}
+      if(matched>=3){
+        const colMult=matched===3?1:matched===4?2:matched===5?5:10;
+        const value=safeNum(sym.value,0);
+        const winAmt=value*colMult*ways*(this.currentBet/1000);
+        if(!Number.isFinite(winAmt)||winAmt<=0)return;
+        totalWin+=winAmt;
+        messages.push(`${sym.char} ${matched} cột (${ways} ways) +${fmt(winAmt)} đ`);
+        for(let i=0;i<matched;i++){cellsInCol[i].forEach(c=>winningCells.push(c))}
+      }
+    });
+    const unique=[];const seen=new Set();
+    winningCells.forEach(c=>{const k=c.reel+'-'+c.row;if(!seen.has(k)){seen.add(k);unique.push(c)}});
+    return{totalWin,messages,winningCells:unique,scatterCells,scatterCount,newScatterCount,newScatterCells};
+  }
+
+  /* Cascade: xóa ô thắng + scatter ĐÃ DÙNG */
+  applyCascade(grid,winningCells){
+    const newGrid=grid.map(col=>col.map(s=>({...s})));
+    const winSet=new Set(winningCells.map(c=>c.reel+'-'+c.row));
+    const affected=new Set();
+    winningCells.forEach(c=>affected.add(c.reel));
+    // Đánh dấu cột có scatter đã dùng
+    for(let i=0;i<CONFIG.reelsCount;i++){
+      for(let j=0;j<CONFIG.rowsConfig[i];j++){
+        if(grid[i][j].isScatter&&grid[i][j].scatterUsed){
+          affected.add(i);
+        }
+      }
+    }
+
+    affected.forEach(i=>{
+      const rows=CONFIG.rowsConfig[i];
+      const col=newGrid[i];
+      const keep=[];
+      for(let j=0;j<rows;j++){
+        const isWin=winSet.has(i+'-'+j);
+        const isUsedScatter=col[j].isScatter&&col[j].scatterUsed;
+        if(!isWin&&!isUsedScatter)keep.push(col[j]);
+      }
+      const pool=this.buildPool();
+      const newOnes=[];
+      while(keep.length+newOnes.length<rows){
+        const s=pool[Math.floor(Math.random()*pool.length)];
+        newOnes.unshift({...s,scatterUsed:false});
+      }
+      newGrid[i]=[...newOnes,...keep].slice(-rows);
+    });
+    return{newGrid,affectedColumns:Array.from(affected)};
+  }
+
+  showPaytable(){
+    this.audio.click();
+    let html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:11px;margin-top:10px;">';
+    CONFIG.symbols.forEach(s=>{html+=`<div style="display:flex;justify-content:space-between;background:rgba(0,0,0,0.4);padding:3px 6px;border-radius:4px;"><span>${s.char}</span><span style="color:#ffd700;">${s.value} đ</span></div>`});
+    html+='</div>';
+    html+='<p style="color:#ff8c00;margin-top:10px;font-size:12px;">💰 SCATTER:<br>3 = x8 • 4 = x20 • 5 = x50 • 6 = x200<br>3+ scatter = 10 FREE SPINS (x8)<br>Mỗi scatter = +2 lượt quay</p>';
+    html+='<p style="color:#ffd700;margin-top:8px;font-size:12px;">🤠 WILD thay thế mọi biểu tượng<br>🔥 Dò theo CỘT: cột 1-2-3 cùng biểu tượng = THẮNG</p>';
+    this.ui.showModal('📜 BẢNG THƯỞNG',html);
+  }
+  confirmReset(){this.ui.showModal('XÁC NHẬN RESET','Xóa toàn bộ dữ liệu và khôi phục mặc định?',true,()=>{localStorage.clear();location.reload()})}
+}
+
+/* ============================================================
+   ADMIN PANEL
+   ============================================================ */
+class AdminPanel{
+  constructor(game){
+    this.game=game;
+    this.panel=document.getElementById('admin-panel');
+    this.header=document.getElementById('admin-header');
+    this.trigger=document.getElementById('admin-trigger');
+    this.closeBtn=document.getElementById('admin-close');
+    this.applyBtn=document.getElementById('admin-apply');
+    this.balanceInput=document.getElementById('admin-balance');
+    this.symList=document.getElementById('sym-list');
+    this.isDragging=false;this.offsetX=0;this.offsetY=0;
+    this.init();
+  }
+  init(){
+    this.trigger.addEventListener('click',()=>this.openPanel());
+    this.closeBtn.addEventListener('click',()=>this.closePanel());
+    this.applyBtn.addEventListener('click',()=>this.applySettings());
+    document.getElementById('btn-add-1m').addEventListener('click',()=>{let v=parseInt(this.balanceInput.value)||0;this.balanceInput.value=v+1000000});
+    document.getElementById('btn-add-10m').addEventListener('click',()=>{let v=parseInt(this.balanceInput.value)||0;this.balanceInput.value=v+10000000});
+    document.getElementById('btn-add-100m').addEventListener('click',()=>{let v=parseInt(this.balanceInput.value)||0;this.balanceInput.value=v+100000000});
+    this.header.addEventListener('mousedown',e=>{this.isDragging=true;const r=this.panel.getBoundingClientRect();this.offsetX=e.clientX-r.left;this.offsetY=e.clientY-r.top});
+    document.addEventListener('mousemove',e=>{if(this.isDragging){e.preventDefault();this.panel.style.left=(e.clientX-this.offsetX)+'px';this.panel.style.top=(e.clientY-this.offsetY)+'px';this.panel.style.right='auto'}});
+    document.addEventListener('mouseup',()=>{this.isDragging=false});
+    this.header.addEventListener('touchstart',e=>{this.isDragging=true;const t=e.touches[0];const r=this.panel.getBoundingClientRect();this.offsetX=t.clientX-r.left;this.offsetY=t.clientY-r.top},{passive:true});
+    document.addEventListener('touchmove',e=>{if(this.isDragging){e.preventDefault();const t=e.touches[0];this.panel.style.left=(t.clientX-this.offsetX)+'px';this.panel.style.top=(t.clientY-this.offsetY)+'px';this.panel.style.right='auto'}},{passive:false});
+    document.addEventListener('touchend',()=>{this.isDragging=false});
+    this.renderSymList();
+  }
+  renderSymList(){
+    this.symList.innerHTML='';
+    CONFIG.symbols.forEach((s,i)=>{
+      const d=document.createElement('div');d.className='sym-item';
+      d.innerHTML=`<div class="ch">${s.char}</div><div class="nm">${s.name}</div><span class="lbl">W:</span><input type="number" class="sym-weight" data-i="${i}" value="${s.weight}" min="1" max="500">`;
+      this.symList.appendChild(d);
+    });
+    this.symList.querySelectorAll('.sym-weight').forEach(inp=>{
+      inp.addEventListener('change',e=>{const i=e.target.dataset.i;const v=parseInt(e.target.value)||1;CONFIG.symbols[i].weight=Math.max(1,Math.min(500,v))});
+    });
+  }
+  openPanel(){const pass=prompt('Nhập mật khẩu:');if(pass==='khanhdz'){this.syncUI();this.panel.classList.add('active')}else alert('Sai mật khẩu!')}
+  closePanel(){this.panel.classList.remove('active')}
+  syncUI(){this.balanceInput.value=Math.floor(this.game.balance);this.renderSymList()}
+  applySettings(){try{const v=Math.max(0,parseInt(this.balanceInput.value)||0);this.game.balance=v;this.game.ui.updateBalance(v);this.game.saveGame();alert('✅ Đã áp dụng!');this.closePanel()}catch(e){alert('❌ Lỗi: '+e.message)}}
+}
+
+/* ============================================================
+   KHỞI CHẠY
+   ============================================================ */
+document.addEventListener('DOMContentLoaded',()=>{
+  try{
+    const game=new SlotMachine();
+    window.game=game;
+    const admin=new AdminPanel(game);
+    window.admin=admin;
+    window.addEventListener('error',e=>console.error('Lỗi:',e.message));
+    document.addEventListener('gesturestart',e=>e.preventDefault());
+    document.addEventListener('visibilitychange',()=>{if(document.hidden){if(game.audio.ctx)game.audio.ctx.suspend()}else{if(game.audio.ctx)game.audio.ctx.resume()}});
+    window.addEventListener('beforeunload',()=>game.saveGame());
+    console.log('%c🤠 WILD BOUNTY SHOWDOWN','color:#ffd700;font-size:18px;font-weight:bold');
+  }catch(e){console.error('Lỗi khởi tạo:',e);document.body.innerHTML+='<div style="color:red;text-align:center;padding:20px;">Lỗi khởi tạo. F5 lại trang.</div>'}
+});
+</script>
+</body>
+</html>
